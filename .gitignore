@@ -1,0 +1,11 @@
+/*
+!/manage.py
+!/requirements.txt
+!/.gitignore
+!/mysite/
+!/polls/
+!/.github/
+__pycache__/
+*.py[cod]
+db.sqlite3
+*.log
