@@ -80,8 +80,8 @@ class MySeleniumTests(StaticLiveServerTestCase):
 
     def login(self, username, password):
         self.selenium.get(f"{self.live_server_url}/admin/login/")
-        self.selenium.find_element(By.ID, "id_username").send_keys(username)
-        self.selenium.find_element(By.ID, "id_password").send_keys(password)
+        self.type_with_fallback(self.selenium.find_element(By.ID, "id_username"), username)
+        self.type_with_fallback(self.selenium.find_element(By.ID, "id_password"), password)
         self.click_with_fallback(
             self.selenium.find_element(By.CSS_SELECTOR, "input[type=submit]"),
             lambda driver: "/admin/login/" not in driver.current_url,
@@ -106,68 +106,62 @@ class MySeleniumTests(StaticLiveServerTestCase):
                 pass
             WebDriverWait(self.selenium, 10).until(condition)
 
+    def type_with_fallback(self, element, text):
+        element.send_keys(text)
+        if not element.get_attribute("value"):
+            self.selenium.execute_script(
+                "arguments[0].focus();"
+                "document.execCommand('insertText', false, arguments[1])",
+                element, text,
+            )
+
     def create_question(self, text):
         selenium = self.selenium
         selenium.get(f"{self.live_server_url}/admin/polls/question/add/")
-        selenium.find_element(By.ID, "id_question_text").send_keys(text)
+        self.type_with_fallback(selenium.find_element(By.ID, "id_question_text"), text)
         self.click_with_fallback(
             selenium.find_element(
                 By.XPATH, "//summary[contains(., 'Date information')]"
             ),
             lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed(),
         )
-        selenium.find_element(By.ID, "id_pub_date_0").send_keys("2026-11-04")
-        selenium.find_element(By.ID, "id_pub_date_1").send_keys("12:00:00")
-        selenium.find_element(By.ID, "id_choice_set-0-choice_text").send_keys(
+        self.type_with_fallback(selenium.find_element(By.ID, "id_pub_date_0"), "2026-11-04")
+        self.type_with_fallback(selenium.find_element(By.ID, "id_pub_date_1"), "12:00:00")
+        self.type_with_fallback(selenium.find_element(By.ID, "id_choice_set-0-choice_text"), 
             "Primera opcio"
         )
-        selenium.find_element(By.ID, "id_choice_set-1-choice_text").send_keys(
+        self.type_with_fallback(selenium.find_element(By.ID, "id_choice_set-1-choice_text"), 
             "Segona opcio"
         )
-        try:
-            self.click_with_fallback(
-                selenium.find_element(By.NAME, "_save"),
-                lambda driver: driver.current_url.endswith(
-                    "/admin/polls/question/"
-                ),
-            )
-        except TimeoutException:
-            print("DEBUG-DESAR url:", selenium.current_url)
-            print("DEBUG-DESAR errors:", selenium.execute_script(
-                "return Array.from(document.querySelectorAll('.errorlist'))"
-                ".map(e => e.textContent).join(' | ') || 'CAP'"))
-            print("DEBUG-DESAR valid:", selenium.execute_script(
-                "const f = document.getElementById('question_form');"
-                "return f ? f.checkValidity() : 'NO-FORM'"))
-            print("DEBUG-DESAR q:", selenium.execute_script(
-                "const q = document.getElementById('id_question_text');"
-                "return q ? q.value : 'ABSENT'"))
-            print("DEBUG-DESAR data:", selenium.execute_script(
-                "const q = document.getElementById('id_pub_date_0');"
-                "return q ? q.value : 'ABSENT'"))
-            print("DEBUG-DESAR hora:", selenium.execute_script(
-                "const q = document.getElementById('id_pub_date_1');"
-                "return q ? q.value : 'ABSENT'"))
-            print("DEBUG-DESAR opcions:", selenium.execute_script(
-                "return [0, 1].map(i => {"
-                "const e = document.getElementById('id_choice_set-' + i + '-choice_text');"
-                "return e ? e.value : 'ABSENT'})"))
-            raise
+        self.click_with_fallback(
+            selenium.find_element(By.NAME, "_save"),
+            lambda driver: driver.current_url.endswith("/admin/polls/question/"),
+        )
 
     def create_staff_user(self):
         selenium = self.selenium
         selenium.get(f"{self.live_server_url}/admin/auth/user/add/")
-        selenium.find_element(By.ID, "id_username").send_keys(STAFF_USERNAME)
-        selenium.find_element(By.ID, "id_password1").send_keys(STAFF_PASSWORD)
-        selenium.find_element(By.ID, "id_password2").send_keys(STAFF_PASSWORD)
+        self.type_with_fallback(selenium.find_element(By.ID, "id_username"), STAFF_USERNAME)
+        self.type_with_fallback(selenium.find_element(By.ID, "id_password1"), STAFF_PASSWORD)
+        self.type_with_fallback(selenium.find_element(By.ID, "id_password2"), STAFF_PASSWORD)
         self.click_with_fallback(
             selenium.find_element(By.NAME, "_continue"),
             lambda driver: driver.current_url.endswith("/change/"),
         )
-        selenium.find_element(By.ID, "id_is_staff").click()
+        self.click_with_fallback(
+            selenium.find_element(By.ID, "id_is_staff"),
+            lambda driver: driver.find_element(By.ID, "id_is_staff").is_selected(),
+        )
         permissions = Select(selenium.find_element(By.ID, "id_user_permissions_from"))
         permissions.select_by_visible_text(PERMISSION_LABEL)
-        selenium.find_element(By.ID, "id_user_permissions_add").click()
+        self.click_with_fallback(
+            selenium.find_element(By.ID, "id_user_permissions_add"),
+            lambda driver: PERMISSION_LABEL in [
+                option.text for option in driver.find_element(
+                    By.ID, "id_user_permissions_to"
+                ).find_elements(By.TAG_NAME, "option")
+            ],
+        )
         chosen = Select(selenium.find_element(By.ID, "id_user_permissions_to"))
         self.assertIn(PERMISSION_LABEL, [option.text for option in chosen.options])
         self.assertTrue(selenium.find_element(By.ID, "id_is_staff").is_selected())
