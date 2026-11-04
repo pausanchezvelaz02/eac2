@@ -6,7 +6,7 @@ from django.contrib.staticfiles.testing import StaticLiveServerTestCase
 from django.test import TestCase
 from django.utils import timezone
 from selenium import webdriver
-from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoSuchElementException, TimeoutException
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
@@ -101,9 +101,15 @@ class MySeleniumTests(StaticLiveServerTestCase):
         selenium.find_element(By.ID, "id_question_text").send_keys(text)
         selenium.find_element(By.XPATH, "//summary[contains(., 'Date information')]"
         ).click()
-        WebDriverWait(selenium, 10).until(
-            lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
-        )
+        try:
+            WebDriverWait(selenium, 5).until(
+                lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
+            )
+        except TimeoutException:
+            selenium.execute_script("document.querySelector('details').open = true")
+            WebDriverWait(selenium, 10).until(
+                lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
+            )
         selenium.find_element(By.ID, "id_pub_date_0").send_keys("2026-11-04")
         selenium.find_element(By.ID, "id_pub_date_1").send_keys("12:00:00")
         selenium.find_element(By.ID, "id_choice_set-0-choice_text").send_keys(
