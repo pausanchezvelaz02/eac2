@@ -106,6 +106,7 @@ class MySeleniumTests(StaticLiveServerTestCase):
                 lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
             )
         except TimeoutException:
+            print("INFO: clic al summary no va; obert via JS")
             selenium.execute_script("document.querySelector('details').open = true")
             WebDriverWait(selenium, 10).until(
                 lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
@@ -119,9 +120,29 @@ class MySeleniumTests(StaticLiveServerTestCase):
             "Segona opcio"
         )
         selenium.find_element(By.NAME, "_save").click()
-        WebDriverWait(selenium, 10).until(
-            lambda driver: driver.current_url.endswith("/admin/polls/question/")
-        )
+        try:
+            WebDriverWait(selenium, 10).until(
+                lambda driver: driver.current_url.endswith("/admin/polls/question/")
+            )
+        except TimeoutException:
+            print("DEBUG-DESAR url:", selenium.current_url)
+            print("DEBUG-DESAR errors:", selenium.execute_script(
+                "return Array.from(document.querySelectorAll('.errorlist')"
+                ".map(e => e.textContent)).join(' | ') || 'CAP'"))
+            print("DEBUG-DESAR q:", selenium.execute_script(
+                "const q = document.getElementById('id_question_text');"
+                "return q ? q.value : 'ABSENT'"))
+            print("DEBUG-DESAR data:", selenium.execute_script(
+                "const q = document.getElementById('id_pub_date_0');"
+                "return q ? q.value : 'ABSENT'"))
+            print("DEBUG-DESAR hora:", selenium.execute_script(
+                "const q = document.getElementById('id_pub_date_1');"
+                "return q ? q.value : 'ABSENT'"))
+            print("DEBUG-DESAR opcions:", selenium.execute_script(
+                "return [0, 1].map(i => {"
+                "const e = document.getElementById('id_choice_set-' + i + '-choice_text');"
+                "return e ? e.value : 'ABSENT'})"))
+            raise
 
     def create_staff_user(self):
         selenium = self.selenium
