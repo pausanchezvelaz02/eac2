@@ -10,7 +10,7 @@ from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import Select, WebDriverWait
 
 from .models import Question
 
@@ -83,9 +83,17 @@ class MySeleniumTests(StaticLiveServerTestCase):
         self.selenium.find_element(By.ID, "id_username").send_keys(username)
         self.selenium.find_element(By.ID, "id_password").send_keys(password)
         self.selenium.find_element(By.CSS_SELECTOR, "input[type=submit]").click()
+        WebDriverWait(self.selenium, 10).until(
+            lambda driver: "/admin/login/" not in driver.current_url
+        )
 
     def logout(self):
-        self.selenium.find_element(By.XPATH, "//button[text()='Log out']").click()
+        selenium = self.selenium
+        previous_url = selenium.current_url
+        selenium.find_element(By.XPATH, "//button[text()='Log out']").click()
+        WebDriverWait(selenium, 10).until(
+            lambda driver: driver.current_url != previous_url
+        )
 
     def create_question(self, text):
         selenium = self.selenium
@@ -93,6 +101,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
         selenium.find_element(By.ID, "id_question_text").send_keys(text)
         selenium.find_element(By.XPATH, "//summary[contains(., 'Date information')]"
         ).click()
+        WebDriverWait(selenium, 10).until(
+            lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
+        )
         selenium.find_element(By.ID, "id_pub_date_0").send_keys("2026-11-04")
         selenium.find_element(By.ID, "id_pub_date_1").send_keys("12:00:00")
         selenium.find_element(By.ID, "id_choice_set-0-choice_text").send_keys(
@@ -102,6 +113,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
             "Segona opcio"
         )
         selenium.find_element(By.NAME, "_save").click()
+        WebDriverWait(selenium, 10).until(
+            lambda driver: driver.current_url.endswith("/admin/polls/question/")
+        )
 
     def create_staff_user(self):
         selenium = self.selenium
@@ -110,6 +124,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
         selenium.find_element(By.ID, "id_password1").send_keys(STAFF_PASSWORD)
         selenium.find_element(By.ID, "id_password2").send_keys(STAFF_PASSWORD)
         selenium.find_element(By.NAME, "_continue").click()
+        WebDriverWait(selenium, 10).until(
+            lambda driver: driver.current_url.endswith("/change/")
+        )
         selenium.find_element(By.ID, "id_is_staff").click()
         permissions = Select(selenium.find_element(By.ID, "id_user_permissions_from"))
         permissions.select_by_visible_text(PERMISSION_LABEL)
@@ -118,6 +135,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
         self.assertIn(PERMISSION_LABEL, [option.text for option in chosen.options])
         self.assertTrue(selenium.find_element(By.ID, "id_is_staff").is_selected())
         selenium.find_element(By.NAME, "_save").click()
+        WebDriverWait(selenium, 10).until(
+            lambda driver: driver.current_url.endswith("/admin/auth/user/")
+        )
         selenium.find_element(By.XPATH, f"//a[text()='{STAFF_USERNAME}']")
 
     def test_staff_user_can_view_questions_but_cannot_create_or_delete(self):
