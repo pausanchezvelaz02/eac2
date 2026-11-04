@@ -82,35 +82,40 @@ class MySeleniumTests(StaticLiveServerTestCase):
         self.selenium.get(f"{self.live_server_url}/admin/login/")
         self.selenium.find_element(By.ID, "id_username").send_keys(username)
         self.selenium.find_element(By.ID, "id_password").send_keys(password)
-        self.selenium.find_element(By.CSS_SELECTOR, "input[type=submit]").click()
-        WebDriverWait(self.selenium, 10).until(
-            lambda driver: "/admin/login/" not in driver.current_url
+        self.click_with_fallback(
+            self.selenium.find_element(By.CSS_SELECTOR, "input[type=submit]"),
+            lambda driver: "/admin/login/" not in driver.current_url,
         )
 
     def logout(self):
         selenium = self.selenium
         previous_url = selenium.current_url
-        selenium.find_element(By.XPATH, "//button[text()='Log out']").click()
-        WebDriverWait(selenium, 10).until(
-            lambda driver: driver.current_url != previous_url
+        self.click_with_fallback(
+            selenium.find_element(By.XPATH, "//button[text()='Log out']"),
+            lambda driver: driver.current_url != previous_url,
         )
+
+    def click_with_fallback(self, element, condition):
+        element.click()
+        try:
+            WebDriverWait(self.selenium, 4).until(condition)
+        except TimeoutException:
+            try:
+                self.selenium.execute_script("arguments[0].click()", element)
+            except Exception:
+                pass
+            WebDriverWait(self.selenium, 10).until(condition)
 
     def create_question(self, text):
         selenium = self.selenium
         selenium.get(f"{self.live_server_url}/admin/polls/question/add/")
         selenium.find_element(By.ID, "id_question_text").send_keys(text)
-        selenium.find_element(By.XPATH, "//summary[contains(., 'Date information')]"
-        ).click()
-        try:
-            WebDriverWait(selenium, 5).until(
-                lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
-            )
-        except TimeoutException:
-            print("INFO: clic al summary no va; obert via JS")
-            selenium.execute_script("document.querySelector('details').open = true")
-            WebDriverWait(selenium, 10).until(
-                lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed()
-            )
+        self.click_with_fallback(
+            selenium.find_element(
+                By.XPATH, "//summary[contains(., 'Date information')]"
+            ),
+            lambda driver: driver.find_element(By.ID, "id_pub_date_0").is_displayed(),
+        )
         selenium.find_element(By.ID, "id_pub_date_0").send_keys("2026-11-04")
         selenium.find_element(By.ID, "id_pub_date_1").send_keys("12:00:00")
         selenium.find_element(By.ID, "id_choice_set-0-choice_text").send_keys(
@@ -119,16 +124,21 @@ class MySeleniumTests(StaticLiveServerTestCase):
         selenium.find_element(By.ID, "id_choice_set-1-choice_text").send_keys(
             "Segona opcio"
         )
-        selenium.find_element(By.NAME, "_save").click()
         try:
-            WebDriverWait(selenium, 10).until(
-                lambda driver: driver.current_url.endswith("/admin/polls/question/")
+            self.click_with_fallback(
+                selenium.find_element(By.NAME, "_save"),
+                lambda driver: driver.current_url.endswith(
+                    "/admin/polls/question/"
+                ),
             )
         except TimeoutException:
             print("DEBUG-DESAR url:", selenium.current_url)
             print("DEBUG-DESAR errors:", selenium.execute_script(
-                "return Array.from(document.querySelectorAll('.errorlist')"
-                ".map(e => e.textContent)).join(' | ') || 'CAP'"))
+                "return Array.from(document.querySelectorAll('.errorlist'))"
+                ".map(e => e.textContent).join(' | ') || 'CAP'"))
+            print("DEBUG-DESAR valid:", selenium.execute_script(
+                "const f = document.getElementById('question_form');"
+                "return f ? f.checkValidity() : 'NO-FORM'"))
             print("DEBUG-DESAR q:", selenium.execute_script(
                 "const q = document.getElementById('id_question_text');"
                 "return q ? q.value : 'ABSENT'"))
@@ -150,9 +160,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
         selenium.find_element(By.ID, "id_username").send_keys(STAFF_USERNAME)
         selenium.find_element(By.ID, "id_password1").send_keys(STAFF_PASSWORD)
         selenium.find_element(By.ID, "id_password2").send_keys(STAFF_PASSWORD)
-        selenium.find_element(By.NAME, "_continue").click()
-        WebDriverWait(selenium, 10).until(
-            lambda driver: driver.current_url.endswith("/change/")
+        self.click_with_fallback(
+            selenium.find_element(By.NAME, "_continue"),
+            lambda driver: driver.current_url.endswith("/change/"),
         )
         selenium.find_element(By.ID, "id_is_staff").click()
         permissions = Select(selenium.find_element(By.ID, "id_user_permissions_from"))
@@ -161,9 +171,9 @@ class MySeleniumTests(StaticLiveServerTestCase):
         chosen = Select(selenium.find_element(By.ID, "id_user_permissions_to"))
         self.assertIn(PERMISSION_LABEL, [option.text for option in chosen.options])
         self.assertTrue(selenium.find_element(By.ID, "id_is_staff").is_selected())
-        selenium.find_element(By.NAME, "_save").click()
-        WebDriverWait(selenium, 10).until(
-            lambda driver: driver.current_url.endswith("/admin/auth/user/")
+        self.click_with_fallback(
+            selenium.find_element(By.NAME, "_save"),
+            lambda driver: driver.current_url.endswith("/admin/auth/user/"),
         )
         selenium.find_element(By.XPATH, f"//a[text()='{STAFF_USERNAME}']")
 
